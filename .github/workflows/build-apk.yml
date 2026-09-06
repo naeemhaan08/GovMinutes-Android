@@ -20,24 +20,48 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - name: Build debug APK
-        run: gradle assembleDebug
-      - name: Verify APK package
+
+      - name: Build release APK
+        run: gradle assembleRelease
+
+      - name: Verify release APK
         run: |
-          $ANDROID_HOME/build-tools/35.0.0/zipalign -c -v 4 app/build/outputs/apk/debug/app-debug.apk
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging app/build/outputs/apk/debug/app-debug.apk
+          APK=app/build/outputs/apk/release/app-release.apk
+          $ANDROID_HOME/build-tools/35.0.0/zipalign -c -v 4 "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install-test APK on Android 15 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            adb install -r app/build/outputs/apk/release/app-release.apk
+            adb shell pm path com.rain.govminutes
+            adb shell monkey -p com.rain.govminutes -c android.intent.category.LAUNCHER 1
+
       - name: Prepare install package
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/GovMinutes_V1.apk
-          sha256sum dist/GovMinutes_V1.apk > dist/SHA256.txt
+          cp app/build/outputs/apk/release/app-release.apk dist/GovMinutes_V1_v0.1.2.apk
+          sha256sum dist/GovMinutes_V1_v0.1.2.apk > dist/SHA256.txt
           cd dist
-          zip GovMinutes_V1_Install.zip GovMinutes_V1.apk SHA256.txt
+          zip GovMinutes_V1_v0.1.2_Install.zip GovMinutes_V1_v0.1.2.apk SHA256.txt
+
       - uses: actions/upload-artifact@v4
         with:
-          name: GovMinutes-V1-verified
+          name: GovMinutes-V1-v0.1.2-emulator-tested
           path: |
-            dist/GovMinutes_V1.apk
+            dist/GovMinutes_V1_v0.1.2.apk
             dist/SHA256.txt
-            dist/GovMinutes_V1_Install.zip
+            dist/GovMinutes_V1_v0.1.2_Install.zip
