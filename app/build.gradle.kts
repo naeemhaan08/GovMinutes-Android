@@ -8,8 +8,9 @@ android {
         applicationId = "com.rain.govminutes"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.1.3"
+        versionCode = 5
+        versionName = "0.1.4"
+        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }
 
     signingConfigs {
@@ -22,9 +23,7 @@ android {
     }
 
     buildTypes {
-        debug {
-            signingConfig = signingConfigs.getByName("debug")
-        }
+        debug { signingConfig = signingConfigs.getByName("debug") }
         release {
             isMinifyEnabled = false
             isDebuggable = false
@@ -33,8 +32,14 @@ android {
         }
     }
 
+    androidResources { noCompress += listOf("onnx", "txt", "model") }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+}
+
+dependencies {
+    implementation("com.github.k2-fsa:sherpa-onnx:1.13.4")
 }
