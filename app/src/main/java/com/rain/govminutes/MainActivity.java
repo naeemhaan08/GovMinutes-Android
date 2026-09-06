@@ -75,7 +75,7 @@ public class MainActivity extends Activity {
                 AudioProcessor.process(original,processed,48000,(p,s)->runOnUiThread(()->status(s+"  "+p+"%")));
                 runOnUiThread(()->status("Detecting speakers conservatively…"));
                 segments=Diarizer.diarize(original,48000);writeDiarization();
-                runOnUiThread(()->{status("Processed audio ready • "+countSpeakers()+" speaker cluster(s)");updateButtons();});
+                runOnUiThread(()->{status("Processed audio ready • gentle voice leveling • "+countSpeakers()+" speaker cluster(s)");updateButtons();});
             }catch(Exception e){runOnUiThread(()->{status("Processing failed: "+e.getMessage());updateButtons();});}
         },"GM-Process").start();
     }
@@ -85,15 +85,15 @@ public class MainActivity extends Activity {
         if(segments==null||segments.isEmpty()){
             try{segments=Diarizer.diarize(original,48000);}catch(Exception e){status("Speaker detection failed.");return;}
         }
-        transcribeBtn.setEnabled(false);status("Starting on-device Bangla recognition…");
+        transcribeBtn.setEnabled(false);transcript.setText("Starting Bangla recognition…");status("Testing Bangla recognition on this phone…");
         new OnDeviceTranscriber(this).transcribe(processed,48000,segments,new OnDeviceTranscriber.Callback(){
             @Override public void onProgress(int done,int total,String msg){runOnUiThread(()->status(msg+"  "+done+"/"+total));}
             @Override public void onComplete(String text){runOnUiThread(()->{
-                transcript.setText(text.isEmpty()?"No transcript returned by the on-device recognizer.":text);
+                transcript.setText(text);
                 try{transcriptFile=new File(sessionDir,"Bangla_Transcript.txt");try(FileOutputStream f=new FileOutputStream(transcriptFile)){f.write(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));}}catch(Exception ignored){}
-                status("Done • Original + Processed + Bangla Transcript saved");updateButtons();
+                status("Done • Original + improved Processed + Bangla Transcript saved");updateButtons();
             });}
-            @Override public void onError(String message){runOnUiThread(()->{status(message);transcribeBtn.setEnabled(true);});}
+            @Override public void onError(String message){runOnUiThread(()->{status("Transcript failed • "+message);transcript.setText(message);transcribeBtn.setEnabled(true);});}
         });
     }
 
@@ -115,8 +115,9 @@ public class MainActivity extends Activity {
     private void updateDevice(){
         String brand=Build.MANUFACTURER==null?"":Build.MANUFACTURER;String model=Build.MODEL;
         boolean preferred=brand.equalsIgnoreCase("samsung")||brand.equalsIgnoreCase("google");
-        String local=(Build.VERSION.SDK_INT>=31&&SpeechRecognizer.isOnDeviceRecognitionAvailable(this))?"On-device recognizer available":"Check/download on-device Bangla speech model";
-        device.setText((preferred?"✓ Preferred device: ":"Device: ")+brand+" "+model+"\n"+local);
+        boolean local=Build.VERSION.SDK_INT>=31&&SpeechRecognizer.isOnDeviceRecognitionAvailable(this);
+        String engine=local?"On-device speech engine detected • Bangla is tested when transcription starts":"Android speech engine will be tested when transcription starts";
+        device.setText((preferred?"✓ Preferred device: ":"Device: ")+brand+" "+model+"\n"+engine);
     }
 
     private void updateButtons(){
